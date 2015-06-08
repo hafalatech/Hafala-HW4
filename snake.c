@@ -19,6 +19,7 @@ MODULE_LICENSE("GPL");
 
 /*==================Global Variables==================*/
 static int major = -1;
+static int minor = 0;
 struct file_operations fops = {         
         .open=         my_open,
         .release=     my_release,
