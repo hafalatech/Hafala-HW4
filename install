@@ -1,0 +1,9 @@
+#!/bin/bash
+rm /dev/encryptor
+rm /dev/decryptor
+rmmod hw4
+
+make
+insmod ./hw4.o iKey=3
+mknod /dev/encryptor c 254 1
+mknod /dev/decryptor c 254 0
