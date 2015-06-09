@@ -6,19 +6,19 @@ Include files:
 /*-------------------------------------------------------------------------
 The main program. The program implements a snake game
 -------------------------------------------------------------------------*/
-int main()
+int StartNewGame(Matrix matrix, char* next_move)
 {
 	Player player = WHITE;
-	Matrix matrix = { { EMPTY } };
+	matrix = { { EMPTY } };
 
 	if (!Init(&matrix))
 	{
 		printf("Illegal M, N parameters.");
 		return -1;
 	}
-	while (Update(&matrix, player))
+	while (Update(&matrix, player , next_move))
 	{
-		Print(&matrix);
+		//Print(&matrix);
 		/* switch turns */
 		player = -player;
 	}
@@ -45,10 +45,11 @@ bool Init(Matrix *matrix)
 	return TRUE;
 }
 
-bool Update(Matrix *matrix, Player player)
+bool Update(Matrix *matrix, Player player , char* next_move)
 {
 	ErrorCode e;
-	Point p = GetInputLoc(matrix, player);
+	//lock until write frees it LOCK_Update
+	Point p = GetInputLoc(matrix, player, next_move);
 
 	if (!CheckTarget(matrix, player, p))
 	{
@@ -58,7 +59,7 @@ bool Update(Matrix *matrix, Player player)
 	e = CheckFoodAndMove(matrix, player, p);
 	if (e == ERR_BOARD_FULL)
 	{
-		printf("the board is full, tie");
+		printf("the board is full, tie"); // retuen value 5
 		return FALSE;
 	}
 	if (e == ERR_SNAKE_IS_TOO_HUNGRY)
@@ -76,22 +77,20 @@ bool Update(Matrix *matrix, Player player)
 	return TRUE;
 }
 
-Point GetInputLoc(Matrix *matrix, Player player)
+Point GetInputLoc(Matrix *matrix, Player player, char* next_move)
 {
-	Direction dir;
+	*result = true;
+	Direction dir = *next_move - '0';
 	Point p;
 
-	printf("% d, please enter your move(DOWN2, LEFT4, RIGHT6, UP8):\n", player);
+	//printf("% d, please enter your move(DOWN2, LEFT4, RIGHT6, UP8):\n", player);
 	do
 	{
-		if (scanf("%d", &dir) < 0)
-		{
-			printf("an error occurred, the program will now exit.\n");
-			exit(1);
-		}
+
 		if (dir != UP   && dir != DOWN && dir != LEFT && dir != RIGHT)
 		{
-			printf("invalid input, please try again\n");
+			*result = false;
+			return p;
 		}
 		else
 		{
@@ -251,28 +250,38 @@ bool IsMatrixFull(Matrix *matrix)
 	return TRUE;
 }
 
-void Print(Matrix *matrix)
+void Print(Matrix *matrix, char* buffer, int lenght)
 {
+	//ripud
+	for (int i = 0; i < lenght; ++i)
+	{
+		buffer[i] = '\0';
+	}
+
 	int i;
 	Point p;
 	for (i = 0; i < N + 1; ++i)
-		printf("---");
-	printf("\n");
+	{
+		strcat(buffer, "---");
+	}
+	strcat(buffer,"\n");
 	for (p.y = 0; p.y < N; ++p.y)
 	{
-		printf("|");
+		strcat(buffer,"|");
 		for (p.x = 0; p.x < N; ++p.x)
 		{
 			switch ((*matrix)[p.y][p.x])
 			{
-			case FOOD:  printf("  *"); break;
-			case EMPTY: printf("  ."); break;
-			default:    printf("% 3d", (*matrix)[p.y][p.x]);
+			case FOOD:  strcat(buffer,"  *"); break;
+			case EMPTY: strcat(buffer,"  ."); break;
+			default:    strcat(buffer,"% 3d", (*matrix)[p.y][p.x]);
 			}
 		}
-		printf(" |\n");
+		strcat(buffer," |\n");
 	}
 	for (i = 0; i < N + 1; ++i)
-		printf("---");
-	printf("\n");
+	{
+		strcat(buffer,"---");
+	}
+	strcat(buffer,"\n");
 }

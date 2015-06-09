@@ -49,6 +49,7 @@ typedef int ErrorCode;
 #define ERR_BOARD_FULL			((ErrorCode)-1)
 #define ERR_SNAKE_IS_TOO_HUNGRY ((ErrorCode)-2)
 
+int StartNewGame(Matrix matrix);
 bool Init(Matrix*); /* initialize the board. return false if the board is illegal (should not occur, affected by N, M parameters) */
 bool Update(Matrix*, Player);/* handle all updating to this player. returns whether to continue or not. */
 void Print(Matrix*);/* prints the state of the board */
