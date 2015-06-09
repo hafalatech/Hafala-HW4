@@ -1,9 +1,9 @@
 #!/bin/bash
-rm /dev/encryptor
-rm /dev/decryptor
-rmmod hw4
+rm snake
+rm snake
+rmmod snake
 
 make
-insmod ./hw4.o iKey=3
-mknod /dev/encryptor c 254 1
-mknod /dev/decryptor c 254 0
+insmod ./snake.o max_games=10
+mknod snake c 254 1
+mknod snake c 254 0
