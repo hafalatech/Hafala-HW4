@@ -47,8 +47,7 @@ typedef struct game_t {
 	int is_game_cancled;
 	int is_game_finished;
 	int num_of_players;
-	int last_color; //0- initialize, 1- white, -1- black
-	char next_move;
+	Player last_color; //0- initialize, 1- white, -1- black
 	int winner; //0- tie, 1- white, 2- black
 	Matrix board;
 } Game;
@@ -63,9 +62,9 @@ typedef int ErrorCode;
 
 int StartNewGame(Game* game)
 bool Init(Matrix*); /* initialize the board. return false if the board is illegal (should not occur, affected by N, M parameters) */
-bool Update(Matrix *matrix, Player player , char* next_move, ErrorCode* e);/* handle all updating to this player. returns whether to continue or not. */
+bool Update(Matrix *matrix, Player player , char next_move, ErrorCode* e);/* handle all updating to this player. returns whether to continue or not. */
 void Print(Matrix *matrix, char* buffer, int lenght);/* prints the state of the board */
-Point GetInputLoc(Matrix *matrix, Player player, char* next_move); /* calculates the location that the player wants to go to */
+Point GetInputLoc(Matrix *matrix, Player player, char next_move); /* calculates the location that the player wants to go to */
 bool CheckTarget(Matrix*, Player, Point);/* checks if the player can move to the specified location */
 Point GetSegment(Matrix*, int);/* gets the location of a segment which is numbered by the value */
 bool IsAvailable(Matrix*, Point);/* returns if the point wanted is in bounds and not occupied by any snake */

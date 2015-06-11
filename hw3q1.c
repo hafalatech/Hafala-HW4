@@ -8,28 +8,22 @@ The main program. The program implements a snake game
 -------------------------------------------------------------------------*/
 int StartNewGame(Game* game)
 {
-	Player player = WHITE;
-	game->matrix = { { EMPTY } };
+	// Player player = WHITE;
+	// game->matrix = { { EMPTY } };
 
-	if (!Init(&game->matrix))
-	{
-		printk("Illegal M, N parameters.");
-		return -1;
-	}
-	ErrorCode* update_error;
+	// if (!Init(&game->matrix))
+	// {
+	// 	printk("Illegal M, N parameters.");
+	// 	return -1;
+	// }
+	// ErrorCode* update_error;
 	while (Update(&game->matrix, player , game->next_move, update_error))
 	{
 		/* switch turns */
 		player = -player;
 	}
 	
-	if(update_error == ERR_INVALID_TARGET || update_error == ERR_SNAKE_IS_TOO_HUNGRY) {
-		game->is_game_finished = 1;
-		game->winner = -player;
-	} else if (update_error == ERR_BOARD_FULL || update_error == ERR_OK) {
-		game->is_game_finished = 1;
-		game->winner = 0;
-	} 
+
 	
 	return 0;
 }
@@ -52,7 +46,7 @@ bool Init(Matrix *matrix)
 	return TRUE;
 }
 
-bool Update(Matrix *matrix, Player player , char* next_move, ErrorCode* e)
+bool Update(Matrix *matrix, Player player , char next_move, ErrorCode* e)
 {
 	//lock until write frees it LOCK_Update
 	Point p = GetInputLoc(matrix, player, next_move);
@@ -84,10 +78,10 @@ bool Update(Matrix *matrix, Player player , char* next_move, ErrorCode* e)
 	return TRUE;
 }
 
-Point GetInputLoc(Matrix *matrix, Player player, char* next_move)
+Point GetInputLoc(Matrix *matrix, Player player, char next_move)
 {
 	*result = true;
-	Direction dir = *next_move - '0';
+	Direction dir = next_move - '0';
 	Point p;
 
 	printk("% d, please enter your move(DOWN2, LEFT4, RIGHT6, UP8):\n", player);
