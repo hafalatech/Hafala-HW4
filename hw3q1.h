@@ -41,6 +41,17 @@ typedef struct
 	int x, y;
 } Point;
 
+/* Game */
+typedef struct game_t {
+	int game_number;
+	int is_game_cancled;
+	int is_game_finished;
+	int num_of_players;
+	int last_color; //0- initialize, 1- white, -1- black
+	char next_move;
+	int winner; //0- tie, 1- white, 2- black
+	Matrix board;
+} Game;
 
 typedef int Matrix[N][N];
 
@@ -48,12 +59,13 @@ typedef int ErrorCode;
 #define ERR_OK      			((ErrorCode) 0)
 #define ERR_BOARD_FULL			((ErrorCode)-1)
 #define ERR_SNAKE_IS_TOO_HUNGRY ((ErrorCode)-2)
+#define ERR_INVALID_TARGET ((ErrorCode)-3)
 
-int StartNewGame(Matrix matrix);
+int StartNewGame(Game* game)
 bool Init(Matrix*); /* initialize the board. return false if the board is illegal (should not occur, affected by N, M parameters) */
-bool Update(Matrix*, Player);/* handle all updating to this player. returns whether to continue or not. */
-void Print(Matrix*);/* prints the state of the board */
-Point GetInputLoc(Matrix*, Player);/* calculates the location that the player wants to go to */
+bool Update(Matrix *matrix, Player player , char* next_move, ErrorCode* e);/* handle all updating to this player. returns whether to continue or not. */
+void Print(Matrix *matrix, char* buffer, int lenght);/* prints the state of the board */
+Point GetInputLoc(Matrix *matrix, Player player, char* next_move); /* calculates the location that the player wants to go to */
 bool CheckTarget(Matrix*, Player, Point);/* checks if the player can move to the specified location */
 Point GetSegment(Matrix*, int);/* gets the location of a segment which is numbered by the value */
 bool IsAvailable(Matrix*, Point);/* returns if the point wanted is in bounds and not occupied by any snake */

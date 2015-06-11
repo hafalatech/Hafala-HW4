@@ -6,23 +6,31 @@ Include files:
 /*-------------------------------------------------------------------------
 The main program. The program implements a snake game
 -------------------------------------------------------------------------*/
-int StartNewGame(Matrix matrix, char* next_move)
+int StartNewGame(Game* game)
 {
 	Player player = WHITE;
-	matrix = { { EMPTY } };
+	game->matrix = { { EMPTY } };
 
-	if (!Init(&matrix))
+	if (!Init(&game->matrix))
 	{
-		printf("Illegal M, N parameters.");
+		printk("Illegal M, N parameters.");
 		return -1;
 	}
-	while (Update(&matrix, player , next_move))
+	ErrorCode* update_error;
+	while (Update(&game->matrix, player , game->next_move, update_error))
 	{
-		//Print(&matrix);
 		/* switch turns */
 		player = -player;
 	}
-
+	
+	if(update_error == ERR_INVALID_TARGET || update_error == ERR_SNAKE_IS_TOO_HUNGRY) {
+		game->is_game_finished = 1;
+		game->winner = -player;
+	} else if (update_error == ERR_BOARD_FULL || update_error == ERR_OK) {
+		game->is_game_finished = 1;
+		game->winner = 0;
+	} 
+	
 	return 0;
 }
 
@@ -36,41 +44,40 @@ bool Init(Matrix *matrix)
 		(*matrix)[N - 1][i] = BLACK * (i + 1);
 	}
 	/* initialize the food location */
-	srand(time(0));
+	
 	if (RandFoodLocation(matrix) != ERR_OK)
 		return FALSE;
-	printf("instructions: white player is represented by positive numbers, \nblack player is represented by negative numbers\n");
-	Print(matrix);
+	printk("instructions: white player is represented by positive numbers, \nblack player is represented by negative numbers\n");
 
 	return TRUE;
 }
 
-bool Update(Matrix *matrix, Player player , char* next_move)
+bool Update(Matrix *matrix, Player player , char* next_move, ErrorCode* e)
 {
-	ErrorCode e;
 	//lock until write frees it LOCK_Update
 	Point p = GetInputLoc(matrix, player, next_move);
 
 	if (!CheckTarget(matrix, player, p))
 	{
-		printf("% d lost.", player);
+		printk("% d lost.", player);
+		*e = ERR_INVALID_TARGET;
 		return FALSE;
 	}
-	e = CheckFoodAndMove(matrix, player, p);
-	if (e == ERR_BOARD_FULL)
+	*e = CheckFoodAndMove(matrix, player, p);
+	if (*e == ERR_BOARD_FULL)
 	{
-		printf("the board is full, tie"); // retuen value 5
+		printk("the board is full, tie"); // return value 5
 		return FALSE;
 	}
-	if (e == ERR_SNAKE_IS_TOO_HUNGRY)
+	if (*e == ERR_SNAKE_IS_TOO_HUNGRY)
 	{
-		printf("% d lost. the snake is too hungry", player);
+		printk("% d lost. the snake is too hungry", player);
 		return FALSE;
 	}
 	// only option is that e == ERR_OK
 	if (IsMatrixFull(matrix))
 	{
-		printf("the board is full, tie");
+		printk("the board is full, tie");
 		return FALSE;
 	}
 
@@ -83,7 +90,7 @@ Point GetInputLoc(Matrix *matrix, Player player, char* next_move)
 	Direction dir = *next_move - '0';
 	Point p;
 
-	//printf("% d, please enter your move(DOWN2, LEFT4, RIGHT6, UP8):\n", player);
+	printk("% d, please enter your move(DOWN2, LEFT4, RIGHT6, UP8):\n", player);
 	do
 	{
 
@@ -225,9 +232,9 @@ ErrorCode RandFoodLocation(Matrix *matrix)
 	Point p;
 	do
 	{
-		p.x = rand() % N;
-		p.y = rand() % N;
-	} while (!IsAvailable(matrix, p) || IsMatrixFull(matrix));
+		p.x = jiffies % N;
+		p.y = jiffies % N;
+	} while (!(IsAvailable(matrix, p) || IsMatrixFull(matrix)));
 
 	if (IsMatrixFull(matrix))
 		return ERR_BOARD_FULL;
@@ -284,4 +291,5 @@ void Print(Matrix *matrix, char* buffer, int lenght)
 		strcat(buffer,"---");
 	}
 	strcat(buffer,"\n");
+	buffer[length-1] = '\0';
 }
