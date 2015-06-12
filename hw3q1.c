@@ -6,29 +6,7 @@ Include files:
 /*-------------------------------------------------------------------------
 The main program. The program implements a snake game
 -------------------------------------------------------------------------*/
-int StartNewGame(Game* game)
-{
-	// Player player = WHITE;
-	// game->matrix = { { EMPTY } };
-
-	// if (!Init(&game->matrix))
-	// {
-	// 	printk("Illegal M, N parameters.");
-	// 	return -1;
-	// }
-	// ErrorCode* update_error;
-	while (Update(&game->matrix, player , game->next_move, update_error))
-	{
-		/* switch turns */
-		player = -player;
-	}
-	
-
-	
-	return 0;
-}
-
-bool Init(Matrix *matrix)
+int Init(Matrix *matrix)
 {
 	int i;
 	/* initialize the snakes location */
@@ -46,7 +24,7 @@ bool Init(Matrix *matrix)
 	return TRUE;
 }
 
-bool Update(Matrix *matrix, Player player , char next_move, ErrorCode* e)
+int Update(Matrix *matrix, Player player , char next_move, ErrorCode* e)
 {
 	//lock until write frees it LOCK_Update
 	Point p = GetInputLoc(matrix, player, next_move);
@@ -80,7 +58,6 @@ bool Update(Matrix *matrix, Player player , char next_move, ErrorCode* e)
 
 Point GetInputLoc(Matrix *matrix, Player player, char next_move)
 {
-	*result = true;
 	Direction dir = next_move - '0';
 	Point p;
 
@@ -90,7 +67,6 @@ Point GetInputLoc(Matrix *matrix, Player player, char next_move)
 
 		if (dir != UP   && dir != DOWN && dir != LEFT && dir != RIGHT)
 		{
-			*result = false;
 			return p;
 		}
 		else
@@ -144,14 +120,14 @@ int GetSize(Matrix *matrix, Player player)
 	return (*matrix)[p.y][p.x] * player;
 }
 
-bool CheckTarget(Matrix *matrix, Player player, Point p)
+int CheckTarget(Matrix *matrix, Player player, Point p)
 {
 	/* is empty or is the tail of the snake (so it will move the next
 	to make place) */
 	return IsAvailable(matrix, p) || ((*matrix)[p.y][p.x] == player * GetSize(matrix, player));
 }
 
-bool IsAvailable(Matrix *matrix, Point p)
+int IsAvailable(Matrix *matrix, Point p)
 {
 	return
 		/* is out of bounds */
@@ -237,7 +213,7 @@ ErrorCode RandFoodLocation(Matrix *matrix)
 	return ERR_OK;
 }
 
-bool IsMatrixFull(Matrix *matrix)
+int IsMatrixFull(Matrix *matrix)
 {
 	Point p;
 	for (p.x = 0; p.x < N; ++p.x)

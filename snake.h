@@ -8,3 +8,4 @@
 #define SNAKE_GET_COLOR   _IOR(SNAKE_IOC_MAGIC, 1, int)
 
 #endif /* _SNAKE_H_ */
+

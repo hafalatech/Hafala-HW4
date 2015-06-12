@@ -9,18 +9,49 @@ extern int errno;
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include "test_utilities.h"
+#include <stdbool.h>
 #include "../hw4.h"
+
+
+
+/*========================[DEFINES]========================*/
+	/**
+	 * Evaluates b and continues if b is true.
+	 * If b is false, ends the test by returning false and prints a detailed
+	 * message about the failure.
+	 */
+	#define ASSERT_TEST(b) do { \
+	    if (!(b)) { \
+	            printf("\nAssertion failed at %s:%d %s ",__FILE__,__LINE__,#b); \
+	            return false; \
+	    } \
+	} while (0)
+
+	/**
+	 * Macro used for running a test from the main function
+	 */
+	#define RUN_TEST(test) do { \
+	    printf("Running "#test"... "); \
+	    if (test()) { \
+	        printf("[OK]\n");\
+	    } else { \
+	            printf("[Failed]\n"); \
+	    } \
+	} while(0)
+/*========================[DEFINES]========================*/
+
+
+
 
 int PrintBuffer(char* buffer, int size)
 {
-        int i;
-        for (i=0 ; i < size; i++)
-        {
-                printf("%c", buffer[i]);
-        }
-        printf("\n");
-        return 0;
+    int i;
+    for (i=0 ; i < size; i++)
+    {
+            printf("%c", buffer[i]);
+    }
+    printf("\n");
+    return 0;
 }
 
 /*
@@ -28,32 +59,32 @@ int PrintBuffer(char* buffer, int size)
  */
 int CompareBuffers(char* buffer1, char* buffer2, int size)
 {
-        int i;
-        for (i=0 ; i<size ; i++)
-        {
-                if (buffer1[i] - buffer2[i] != 0)
-                {
-                        return buffer1[i] - buffer2[i];
-                }
-        }
-        return 0;
+    int i;
+    for (i=0 ; i<size ; i++)
+    {
+            if (buffer1[i] - buffer2[i] != 0)
+            {
+                    return buffer1[i] - buffer2[i];
+            }
+    }
+    return 0;
 }
 
 void InitBufferAbc(char* buffer, int size)
 {
-        char k = 'a';
-        int i;
-        for(i=0 ; i < size ; i++ )
-        {
-                buffer[i]= k;
-                k++;
-        }
+    char k = 'a';
+    int i;
+    for(i=0 ; i < size ; i++ )
+    {
+            buffer[i]= k;
+            k++;
+    }
 }
 
 int FirstTest()
 {
 
-	char buffer[1000];
+	char board[1024];
 	int retval = 0;
 
 	int a;
@@ -62,16 +93,18 @@ int FirstTest()
 	int status;
 	
 	if(pid1 == 0) {
+		//player 1 (white)
 		a=open("/dev/snake0", O_RDWR);   
-		retval = read(a, buffer, 1000);
-		printf("Board: \n %s", buffer);	
+		retval = read(a, board, 1000);
+		printf("Board: \n %s", board);	
 		_exit(0);
 	} else {
 		int pid2 = fork();
 		if(pid2 == 0) {
+			//player 2 (black)
 			b=open("/dev/snake0", O_RDWR); 
-			retval = read(a, buffer, 1000);
-			printf("Board: \n %s", buffer);
+			retval = read(a, board, 1000);
+			printf("Board: \n %s", board);
 			_exit(0);
 		} else {
 			wait(&status);
@@ -79,8 +112,10 @@ int FirstTest()
 		wait(&status);
 	}
 	
-	//release(a);
-		
+	
+    close(a);
+    close(b);	
+
     return retval;
 }
 
