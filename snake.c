@@ -34,16 +34,10 @@ struct file_operations fops; //forward declaration
 int max_games = 0;
 MODULE_PARM(max_games, "i" );
 
-Game games_array[max_games];
-struct semaphore semaphore_array[max_games];
-struct semaphore semaphore_cond[max_games];
-int is_going_to_sleep[max_games];
-
-
-/*==================[static functions]==================*/
-
-
-
+Game* games_array;
+struct semaphore* semaphore_array;
+struct semaphore* semaphore_cond;
+int* is_going_to_sleep;
 
 
 /*======================[Clean]========================*/
@@ -55,6 +49,10 @@ void cleanup_module(void)
         printk(KERN_ALERT "Could not unregister_chrdev: %d\n", result);
     }
 	//todo - is there a destroy for semaphore kernel?
+	kfree(games_array);
+	kfree(semaphore_array);
+	kfree(semaphore_cond);
+	kfree(is_going_to_sleep);
 	return;
 }
 
@@ -87,7 +85,13 @@ int my_open( struct inode *inode, struct file *filep ) {
 		if(games_array[myMinor].num_of_players == TWO) 
 		{
 			games_array[myMinor].last_color = BLACK; //IN ORDER TO ALLOW WHITE TO PLAY FIRST
-			games_array[myMinor].board = { { EMPTY } };
+			//games_array[myMinor].board = { { EMPTY } };
+			int i, j;
+			for(i = 0; i < N; i++) {
+				for(j = 0; j < N; j++) {
+					games_array[myMinor].board[i][j] = 0;
+				}
+			}
 			if (!Init(&games_array[myMinor].board))
 			{
 				printk("Illegal M, N parameters.");
@@ -147,7 +151,7 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 	}
 
 	int myMinor = (m_data->my_game)->game_number;
-	char* buffer = (char*)kmalloc(sizeof(char)*count,GFP_KERNEL);
+	char* buffer = (char*)kmalloc(sizeof(char)*count, GFP_KERNEL);
 	int result = copy_from_user(buffer, buf, count);
 
 	struct semaphore *sem = &semaphore_array[myMinor];
@@ -265,6 +269,12 @@ int init_module(void)
 	{
         return major;
 	}
+
+	games_array = (Game*)kmalloc(sizeof(Game)*max_games, GFP_KERNEL);
+	semaphore_array = (struct semaphore*)kmalloc(sizeof(struct semaphore)*max_games, GFP_KERNEL);
+	semaphore_cond = (struct semaphore*)kmalloc(sizeof(struct semaphore)*max_games, GFP_KERNEL);
+	is_going_to_sleep = (int*)kmalloc(sizeof(int)*max_games, GFP_KERNEL);
+	
 	int i;
 	for(i = 0; i < max_games; i++) {
 		games_array[i].game_number = i;
