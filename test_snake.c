@@ -1,4 +1,3 @@
-
 #include <asm/errno.h>
 extern int errno;
 #include <stdio.h>

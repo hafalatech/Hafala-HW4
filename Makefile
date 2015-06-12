@@ -3,5 +3,3 @@ include $(KERNELDIR)/.config
 CFLAGS = -D __KERNEL__ -D MODULE -I $(KERNELDIR)/include -O -Wall
 
 all:	snake.o
-
-	gcc -Wall test_snake.c -o test_snake 

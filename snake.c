@@ -10,8 +10,8 @@
 #include <linux/slab.h>         // for kmalloc
 #include <linux/spinlock.h>
 #include <linux/wait.h>
-#include "snake.h"
 #include "hw3q1.h"
+#include "snake.h"
 MODULE_LICENSE("GPL");
 
 /*==================Defines==================*/
@@ -58,7 +58,8 @@ void cleanup_module(void)
 
 /*=======================[Open]=======================*/
 int my_open( struct inode *inode, struct file *filep ) {
-
+	printk("[ HW4 ] - new gamer\n");
+	return 200;
 	int myMinor = MINOR(inode->i_rdev);
 	struct semaphore *sem = &semaphore_array[myMinor];
 	int myColor = 0;
@@ -79,7 +80,7 @@ int my_open( struct inode *inode, struct file *filep ) {
 			games_array[myMinor].num_of_players++;
 		}
 		else if (games_array[myMinor].num_of_players >= TWO) {
-			return -1;
+			return -EPERM;
 		}
 	
 		if(games_array[myMinor].num_of_players == TWO) 
@@ -210,7 +211,7 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 }
 
 /*========================[Llseek]========================*/
-int my_llseek(struct file *filep, loff_t a, int num) {
+loff_t my_llseek(struct file *filep, loff_t a, int num) {
 	return -ENOSYS;
 }
 
@@ -264,6 +265,7 @@ struct file_operations fops = {
 /*========================[Init]========================*/
 int init_module(void)
 {
+	printk("[ HW4 ] - init_module CALLED\n");
 	major = register_chrdev(ZERO, SNAKE_MODULE, &fops);
 	if(major < 0)
 	{

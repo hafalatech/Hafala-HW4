@@ -1,25 +1,12 @@
 #!/bin/bash
 rm /dev/snake0
 rm /dev/snake1
-rm /dev/snake2
-rm /dev/snake3
-rm /dev/snake4
-rm /dev/snake5
-rm /dev/snake6
-rm /dev/snake7
-rm /dev/snake8
-rm /dev/snake9
-rmmod /dev/snake
+rmmod snake
 
-make
+make 
 insmod ./snake.o max_games=10
-mknod /dev/snake0 c 254 0
-mknod /dev/snake1 c 254 1
-mknod /dev/snake2 c 254 2
-mknod /dev/snake3 c 254 3
-mknod /dev/snake4 c 254 4
-mknod /dev/snake5 c 254 5
-mknod /dev/snake6 c 254 6
-mknod /dev/snake7 c 254 7
-mknod /dev/snake8 c 254 8
-mknod /dev/snake9 c 254 9
+mknod /dev/snake0 c 254 1
+mknod /dev/snake1 c 254 0
+
+gcc -Wall test_snake.c -o test_snake
+./test_snake
