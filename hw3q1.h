@@ -74,7 +74,14 @@ The main program. The program implements a snake game
 -------------------------------------------------------------------------*/
 int Init(Matrix *matrix)
 {
-	int i;
+	//initialize the matrix
+	int i, j;
+	for(i = 0; i < N; i++) {
+		for(j = 0; j < N; j++) {
+			(*matrix)[i][j] = 0;
+		}
+	}
+
 	/* initialize the snakes location */
 	for (i = 0; i < M; ++i)
 	{
@@ -297,6 +304,7 @@ int IsMatrixFull(Matrix *matrix)
 
 void Print(Matrix *matrix, char* buffer, int lenght)
 {
+	printk("[HW1 Print] - PRINTING BOARD");
 	//ripud
 	int i;
 	for (i = 0; i < lenght; ++i)
@@ -315,12 +323,30 @@ void Print(Matrix *matrix, char* buffer, int lenght)
 		strcat(buffer,"|");
 		for (p.x = 0; p.x < N; ++p.x)
 		{
-			switch ((*matrix)[p.y][p.x])
+			int currentVal = (int)((*matrix)[p.y][p.x]);
+			if(currentVal == FOOD)
 			{
-			case FOOD:  strcat(buffer,"  *"); break;
-			case EMPTY: strcat(buffer,"  ."); break;
-			default:
-				snprintf(buffer, 3 ,"% 3d", (*matrix)[p.y][p.x]);
+				strcat(buffer,"  *");
+			} 
+			else if (currentVal == EMPTY)
+			{
+				strcat(buffer,"  .");
+			}
+			else if (currentVal > 0)
+			{
+				strcat(buffer,"  ");
+				char valToChar[2];
+				valToChar[0] = currentVal + '0';
+				valToChar[1] = '\0';
+				strcat(buffer,valToChar);
+			}
+			else if (currentVal < 0)
+			{
+				strcat(buffer," -");
+				char valToChar[2];
+				valToChar[0] = (-currentVal) + '0';
+				valToChar[1] = '\0';
+				strcat(buffer,valToChar);	
 			}
 		}
 		strcat(buffer," |\n");
@@ -331,5 +357,6 @@ void Print(Matrix *matrix, char* buffer, int lenght)
 	}
 	strcat(buffer,"\n");
 	buffer[lenght-1] = '\0';
+	printk("[HW1 Print] - PRINT FINISHED");
 }
 

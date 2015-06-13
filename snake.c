@@ -36,6 +36,8 @@ MODULE_PARM(max_games, "i" );
 
 Game* games_array;
 struct semaphore* semaphore_array;
+struct semaphore* semaphore_array_open;
+spinlock_t* spinlocks_array;
 struct semaphore* semaphore_cond;
 int* is_going_to_sleep;
 
@@ -43,6 +45,7 @@ int* is_going_to_sleep;
 /*======================[Clean]========================*/
 void cleanup_module(void)
 {	
+	printk("[HW4 cleanup_module] - start\n");
 	int result = unregister_chrdev(major, SNAKE_MODULE);
     if(result < 0)
     {
@@ -51,60 +54,70 @@ void cleanup_module(void)
 	//todo - is there a destroy for semaphore kernel?
 	kfree(games_array);
 	kfree(semaphore_array);
+	kfree(semaphore_array_open);
 	kfree(semaphore_cond);
 	kfree(is_going_to_sleep);
+	kfree(spinlocks_array);
+	printk("[HW4 cleanup_module] - end\n");
 	return;
 }
 
 /*=======================[Open]=======================*/
 int my_open( struct inode *inode, struct file *filep ) {
-	printk("[ HW4 ] - new gamer\n");
-	return 200;
+	printk("[HW4 OPEN] - NEW PLAYER IS TRYING TO JOIN\n");
 	int myMinor = MINOR(inode->i_rdev);
-	struct semaphore *sem = &semaphore_array[myMinor];
+	struct semaphore *sem_for_open = &semaphore_array_open[myMinor];
 	int myColor = 0;
+	printk("[HW4 OPEN] - games_array[myMinor].is_game_cancled = %d , games_array[myMinor].is_game_finished = %d\n" , games_array[myMinor].is_game_cancled,games_array[myMinor].is_game_finished);
 	if (games_array[myMinor].is_game_cancled != 0 || games_array[myMinor].is_game_finished != 0)
 	{
 		return -ERROR_SNAKE;
 	}
-
 	filep->f_op = &fops;
 	
-	down_interruptible(sem);
+	printk("[HW4 OPEN] - HERE1\n");
+	spin_lock(spinlocks_array[myMinor]);
 		if (games_array[myMinor].num_of_players == ZERO) {
+			printk("[HW4 OPEN] - THE NEW PLAYER IS WHITE\n");
 			myColor = WHITE;
 			games_array[myMinor].num_of_players++;	
 		}
 		else if (games_array[myMinor].num_of_players == ONE) {
+			printk("[HW4 OPEN] - THE NEW PLAYER IS BLACK\n");
 			myColor = BLACK;
 			games_array[myMinor].num_of_players++;
+			up(sem_for_open);
 		}
 		else if (games_array[myMinor].num_of_players >= TWO) {
+			printk("[HW4 OPEN] - THERE ARE ALREADY 2 PLAYERS, PREMITION DENIED\n");
+			spin_unlock(spinlocks_array[myMinor]);
 			return -EPERM;
 		}
-	
-		if(games_array[myMinor].num_of_players == TWO) 
+	spin_unlock(spinlocks_array[myMinor]);
+
+	printk("[HW4 OPEN] - ABOUT TO CALL INIT GAME\n");
+	if(games_array[myMinor].num_of_players == TWO) 
+	{
+		printk("[HW4 OPEN] - STARTING A NEW GAME! \n");
+		games_array[myMinor].last_color = BLACK; //IN ORDER TO ALLOW WHITE TO PLAY FIRST
+		if (!Init(&games_array[myMinor].board))
 		{
-			games_array[myMinor].last_color = BLACK; //IN ORDER TO ALLOW WHITE TO PLAY FIRST
-			//games_array[myMinor].board = { { EMPTY } };
-			int i, j;
-			for(i = 0; i < N; i++) {
-				for(j = 0; j < N; j++) {
-					games_array[myMinor].board[i][j] = 0;
-				}
-			}
-			if (!Init(&games_array[myMinor].board))
-			{
-				printk("Illegal M, N parameters.");
-				return -1;
-			}
+			printk("Illegal M, N parameters.");
+			return -1;
 		}
-	up(sem);
+	}
+	printk("[HW4 OPEN] - INIT GAME WAS CALLED \n");
+
+
+	if (games_array[myMinor].num_of_players == ONE) {
+		down_interruptible(sem_for_open);
+	}
 
 	Data* newData = (Data*)kmalloc(sizeof(Data), GFP_KERNEL);
 	newData->my_game = &(games_array[myMinor]);
 	newData->my_color = myColor;
 	filep->private_data = newData;
+	printk("[HW4 OPEN] - MY_OPEN ENDED\n");
 
 	return 0;
 }
@@ -123,6 +136,7 @@ int my_release( struct inode *inode, struct file *filep ) {
 
 /*========================[Read]========================*/
 ssize_t my_read( struct file *filep, char *buf, size_t count, loff_t *f_pos ) {
+	printk("[HW4 MY_READ] - MY_READ WAS CALLED");
 	Data* m_data = ((Data*)filep->private_data);
 	if ((m_data->my_game)->is_game_cancled != 0 || (m_data->my_game)->is_game_finished != 0)
 	{
@@ -135,6 +149,7 @@ ssize_t my_read( struct file *filep, char *buf, size_t count, loff_t *f_pos ) {
 	
 	down_interruptible(sem);
 		Print(&(m_data->my_game)->board, board_buffer, count);
+		printk("%s\n",board_buffer);
 	up(sem);
 	
 	int result = copy_to_user(buf, board_buffer, count);
@@ -145,9 +160,11 @@ ssize_t my_read( struct file *filep, char *buf, size_t count, loff_t *f_pos ) {
 
 /*========================[Write]========================*/
 ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos) {
+    printk("[HW4 WRITE] - STARTED\n");
     Data* m_data = ((Data*)filep->private_data);
     if ((m_data->my_game)->is_game_cancled != 0 || (m_data->my_game)->is_game_finished != 0)
 	{
+		printk("[HW4 WRITE] - THIS GAME IS CANCELED\n");
 		return -ERROR_SNAKE;
 	}
 
@@ -161,12 +178,24 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 	Game* current_game = m_data->my_game;
 	int i = 0;
 	while(buffer[i] != '\0') {
+		if(m_data->my_color == WHITE)
+		{
+			printk("[HW4 WRITE] IM WHITE - READING NEXT CHAR\n");
+		}else{
+			printk("[HW4 WRITE] IM BLACK - READING NEXT CHAR\n");	
+		}
 		ErrorCode update_error;	
 		int hasLocked = 0;
 
 		down_interruptible(sem);
 			if (current_game->last_color == m_data->my_color)
 			{	
+				if(m_data->my_color == WHITE)
+				{
+					printk("[HW4 WRITE] IM WHITE - NOT MY TURN - GOING TO SLEEP\n");
+				}else{
+					printk("[HW4 WRITE] IM BLACK - NOT MY TURN - GOING TO SLEEP\n");	
+				}		
 				//cant do this move until other player finished
 				hasLocked = 1;
 				is_going_to_sleep[myMinor] = 1;
@@ -207,6 +236,7 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 	}
 	
 	kfree(buffer);
+	printk("[HW4 WRITE] - ENDED\n");
 	return result;
 }
 
@@ -273,9 +303,14 @@ int init_module(void)
 	}
 
 	games_array = (Game*)kmalloc(sizeof(Game)*max_games, GFP_KERNEL);
+	semaphore_array_open = (struct semaphore*)kmalloc(sizeof(struct semaphore)*max_games, GFP_KERNEL);
 	semaphore_array = (struct semaphore*)kmalloc(sizeof(struct semaphore)*max_games, GFP_KERNEL);
 	semaphore_cond = (struct semaphore*)kmalloc(sizeof(struct semaphore)*max_games, GFP_KERNEL);
 	is_going_to_sleep = (int*)kmalloc(sizeof(int)*max_games, GFP_KERNEL);
+
+
+	spinlocks_array = (spinlock_t*)kmalloc(sizeof(spinlock_t)*max_games, GFP_KERNEL);
+	
 	
 	int i;
 	for(i = 0; i < max_games; i++) {
@@ -287,8 +322,12 @@ int init_module(void)
 		games_array[i].winner = 0;
 		is_going_to_sleep[i]=0;
 
+		spin_lock_init(&spinlocks_array[i]);
+
+		sema_init(&semaphore_array_open[i], 0);
 		sema_init(&semaphore_array[i], 1);
 		sema_init(&semaphore_cond[i], 0);
+
 	}
 	return 0;
 }

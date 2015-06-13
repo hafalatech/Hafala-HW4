@@ -1,12 +1,16 @@
 #!/bin/bash
 rm /dev/snake0
 rm /dev/snake1
+rm /dev/snake2
+rm /dev/snake3
 rmmod snake
 
 make 
-insmod ./snake.o max_games=10
-mknod /dev/snake0 c 254 1
-mknod /dev/snake1 c 254 0
+insmod ./snake.o max_games=50
+mknod /dev/snake0 c 254 0
+mknod /dev/snake1 c 254 1
+mknod /dev/snake2 c 254 2
+mknod /dev/snake3 c 254 3
 
 gcc -Wall test_snake.c -o test_snake
-./test_snake
+./test_snake 
