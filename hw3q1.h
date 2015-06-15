@@ -43,8 +43,11 @@ typedef struct game_t {
 	int num_of_players;
 	Player last_color; //0- initialize, 1- white, -1- black
 	int winner; // (0) tie, (1) white, (-1) black
+	int white_hunger;
+	int black_hunger; // (0) tie, (1) white, (-1) black
 	Matrix board;
 } Game;
+
 
 
 
@@ -55,13 +58,13 @@ typedef int ErrorCode;
 #define ERR_INVALID_TARGET 		((ErrorCode)-3)
 
 int Init(Matrix *matrix); /* initialize the board. return false if the board is illegal (should not occur, affected by N, M parameters) */
-int Update(Matrix *matrix, Player player , char next_move, ErrorCode* e);/* handle all updating to this player. returns whether to continue or not. */
+int Update(Matrix *matrix, Player player, char next_move, ErrorCode* e, int *white_hunger, int *black_hunger );/* handle all updating to this player. returns whether to continue or not. */
 void Print(Matrix *matrix, char* buffer, int lenght);/* prints the state of the board */
 Point GetInputLoc(Matrix *matrix, Player player, char next_move); /* calculates the location that the player wants to go to */
 int CheckTarget(Matrix *matrix, Player player, Point p);/* checks if the player can move to the specified location */
 Point GetSegment(Matrix *matrix, int segment);/* gets the location of a segment which is numbered by the value */
 int IsAvailable(Matrix *matrix, Point p);/* returns if the point wanted is in bounds and not occupied by any snake */
-ErrorCode CheckFoodAndMove(Matrix *matrix, Player player, Point p);/* handle food and advance the snake accordingly */
+ErrorCode CheckFoodAndMove(Matrix *matrix, Player player, Point p, int *white_hunger, int *black_hunger);/* handle food and advance the snake accordingly */
 ErrorCode RandFoodLocation(Matrix *matrix);/* randomize a location for food. return ERR_BOARD_FULL if the board is full */
 void AdvancePlayer(Matrix *matrix, Player player, Point p);/* advance the snake */
 void IncSizePlayer(Matrix *matrix, Player player, Point p);/* advance the snake and increase it's size */
@@ -99,44 +102,46 @@ int Init(Matrix *matrix)
 	return TRUE;
 }
 
-int Update(Matrix *matrix, Player player, char next_move, ErrorCode* e)
+int Update(Matrix *matrix, Player player, char next_move, ErrorCode* e, int *white_hunger, int *black_hunger )
 {
+	printk("[HW4 UPDATE] - STARTED - char is %c\n",next_move);
 	//lock until write frees it LOCK_Update
 	Point p = GetInputLoc(matrix, player, next_move);
 
 	if (!CheckTarget(matrix, player, p))
 	{
-		printk("% d lost.", player);
+		printk("[HW4 UPDATE]% d lost.\n", player);
 		*e = ERR_INVALID_TARGET;
 		return FALSE;
 	}
-	*e = CheckFoodAndMove(matrix, player, p);
+	*e = CheckFoodAndMove(matrix, player, p, white_hunger, black_hunger);
 	if (*e == ERR_BOARD_FULL)
 	{
-		printk("the board is full, tie"); // return value 5
+		printk("[HW4 UPDATE]the board is full, tie\n"); // return value 5
 		return FALSE;
 	}
 	if (*e == ERR_SNAKE_IS_TOO_HUNGRY)
 	{
-		printk("% d lost. the snake is too hungry", player);
+		printk("[HW4 UPDATE]% d lost. the snake is too hungry\n", player);
 		return FALSE;
 	}
 	// only option is that e == ERR_OK
 	if (IsMatrixFull(matrix))
 	{
-		printk("the board is full, tie");
+		printk("[HW4 UPDATE]the board is full, tie\n");
 		return FALSE;
 	}
-
+	printk("[HW4 UPDATE] - ENDED\n");
 	return TRUE;
 }
 
 Point GetInputLoc(Matrix *matrix, Player player, char next_move)
 {
 	Direction dir = next_move - '0';
+	printk("[HW4 GetInputLoc] - STARTED - dir is %d\n",dir);
 	Point p;
-
-	printk("% d, please enter your move(DOWN2, LEFT4, RIGHT6, UP8):\n", player);
+	p.x = -1;
+	p.y = -1;
 	do
 	{
 
@@ -159,6 +164,7 @@ Point GetInputLoc(Matrix *matrix, Player player, char next_move)
 	case LEFT:  --p.x; break;
 	case RIGHT: ++p.x; break;
 	}
+	printk("[HW4 GetInputLoc] - ENDED\n");
 	return p;
 }
 
@@ -212,15 +218,19 @@ int IsAvailable(Matrix *matrix, Point p)
 		((*matrix)[p.y][p.x] != EMPTY && (*matrix)[p.y][p.x] != FOOD));
 }
 
-ErrorCode CheckFoodAndMove(Matrix *matrix, Player player, Point p)
+ErrorCode CheckFoodAndMove(Matrix *matrix, Player player, Point p, int *white_hunger, int *black_hunger)
 {
-	static int white_counter = K;
-	static int black_counter = K;
+	if (player == BLACK)
+			printk("[HW4 CheckFoodAndMove] BLACK - ITS HUNGER IS %d\n",*black_hunger); 
+	if (player == WHITE)
+		printk("[HW4 CheckFoodAndMove] WHITE - ITS HUNGER IS %d\n",*white_hunger); 
+
+
 	/* if the player did come to the place where there is food */
 	if ((*matrix)[p.y][p.x] == FOOD)
 	{
-		if (player == BLACK) black_counter = K;
-		if (player == WHITE) white_counter = K;
+		if (player == BLACK) *black_hunger = K;
+		if (player == WHITE) *white_hunger = K;
 
 		IncSizePlayer(matrix, player, p);
 
@@ -229,9 +239,10 @@ ErrorCode CheckFoodAndMove(Matrix *matrix, Player player, Point p)
 	}
 	else /* check hunger */
 	{
-		if (player == BLACK && --black_counter == 0)
+		printk("[HW4 CheckFoodAndMove] player is %d\n",player); 
+		if (player == BLACK && --(*black_hunger) == 0)
 			return ERR_SNAKE_IS_TOO_HUNGRY;
-		if (player == WHITE && --white_counter == 0)
+		if (player == WHITE && --(*white_hunger) == 0)
 			return ERR_SNAKE_IS_TOO_HUNGRY;
 
 		AdvancePlayer(matrix, player, p);
@@ -279,6 +290,7 @@ ErrorCode RandFoodLocation(Matrix *matrix)
 	{
 		p.x = jiffies % N;
 		p.y = jiffies % N;
+
 	} while (!(IsAvailable(matrix, p) || IsMatrixFull(matrix)));
 
 	if (IsMatrixFull(matrix))
@@ -301,6 +313,7 @@ int IsMatrixFull(Matrix *matrix)
 	}
 	return TRUE;
 }
+
 
 void Print(Matrix *matrix, char* buffer, int lenght)
 {

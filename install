@@ -3,14 +3,58 @@ rm /dev/snake0
 rm /dev/snake1
 rm /dev/snake2
 rm /dev/snake3
+rm /dev/snake4
+rm /dev/snake5
+rm /dev/snake6
+rm /dev/snake7
+rm /dev/snake8
+rm /dev/snake9
+rm /dev/snake10
+rm /dev/snake11
+rm /dev/snake12
+rm /dev/snake13
+rm /dev/snake14
+rm /dev/snake15
+rm /dev/snake16
+rm /dev/snake17
+rm /dev/snake18
+rm /dev/snake19
+rm /dev/snake20
+rm /dev/snake21
+rm /dev/snake22
+rm /dev/snake23
+rm /dev/snake24
+rm /dev/snake25
 rmmod snake
 
 make 
-insmod ./snake.o max_games=50
+insmod ./snake.o max_games=25
 mknod /dev/snake0 c 254 0
 mknod /dev/snake1 c 254 1
 mknod /dev/snake2 c 254 2
 mknod /dev/snake3 c 254 3
+mknod /dev/snake4 c 254 4
+mknod /dev/snake5 c 254 5
+mknod /dev/snake6 c 254 6
+mknod /dev/snake7 c 254 7
+mknod /dev/snake8 c 254 8
+mknod /dev/snake9 c 254 9
+mknod /dev/snake10 c 254 10
+mknod /dev/snake11 c 254 11
+mknod /dev/snake12 c 254 12
+mknod /dev/snake13 c 254 13
+mknod /dev/snake14 c 254 14
+mknod /dev/snake15 c 254 15
+mknod /dev/snake16 c 254 16
+mknod /dev/snake17 c 254 17
+mknod /dev/snake18 c 254 18
+mknod /dev/snake19 c 254 19
+mknod /dev/snake20 c 254 20
+mknod /dev/snake21 c 254 21
+mknod /dev/snake22 c 254 22
+mknod /dev/snake23 c 254 23
+mknod /dev/snake24 c 254 24
+mknod /dev/snake25 c 254 25
 
 gcc -Wall test_snake.c -o test_snake
 ./test_snake 
