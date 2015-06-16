@@ -15,11 +15,6 @@ extern int errno;
 #include "snake.h"
 #include <sys/wait.h>
 
-#define DOWN  '2'
-#define LEFT  '4'
-#define RIGHT '6'
-#define UP    '8'
-
 /*========================[instructions]========================*/
 	// compile this test with:
 	// gcc -Wall test_snake.c -o test_snake
@@ -58,11 +53,13 @@ extern int errno;
 
 
 /*========================[DEFINES]========================*/
-	/**
-	 * Evaluates b and continues if b is true.
-	 * If b is false, ends the test by returning false and prints a detailed
-	 * message about the failure.
-	 */
+	#define DOWN  '2'
+	#define LEFT  '4'
+	#define RIGHT '6'
+	#define UP    '8'
+	#define BUFFER_SIZE 1024
+
+
 	#define ASSERT(b) do { \
 	    if (!(b)) { \
 	            printf("\nAssertion failed at %s:%d %s ",__FILE__,__LINE__,#b); \
@@ -70,9 +67,7 @@ extern int errno;
 	    } \
 	} while (0)
 
-	/**
-	 * Macro used for running a test from the main function
-	 */
+
 	#define RUN_TEST(test) do { \
 	    printf("Running "#test"... "); \
 	    if (test()) { \
@@ -205,9 +200,9 @@ extern int errno;
 		}
 
 
-		char middle[1024];
+		char middle[BUFFER_SIZE];
 		int i;
-		for (i = 0; i < 1024; ++i)
+		for (i = 0; i < BUFFER_SIZE; ++i)
 		{
 			middle[i] = '\0';
 		}
@@ -270,9 +265,9 @@ extern int errno;
 		}
 
 
-		char middle[1024];
+		char middle[BUFFER_SIZE];
 		int i;
-		for (i = 0; i < 1024; ++i)
+		for (i = 0; i < BUFFER_SIZE; ++i)
 		{
 			middle[i] = '\0';
 		}
@@ -535,7 +530,61 @@ bool CreateGameWithThreePlayersTest()
 bool PrintBoardTest()
 {
 	char* moduleName = getModule();
-	char board[1024];
+	char board[BUFFER_SIZE+1];
+	board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
+	int a;
+	int b;
+	int status;
+	int pid1 = fork();
+	if(pid1 == 0) {
+		//player 1 (white)
+		a=open(moduleName, O_RDWR);
+		ASSERT(a>=0);
+
+
+		int readRes = read(a, NULL, BUFFER_SIZE);
+		ASSERT(readRes == -1); // <---- should bring 0 according to the metargelim (piazza return -EFAULT;)
+
+		readRes = read(a, board, 0);
+		ASSERT(readRes == 0);	// <---- should bring 0 according to the metargelim (piazza return 0;)
+
+		readRes = read(a, NULL, 0);
+		ASSERT(readRes == 0);	// <---- should bring 0 according to the metargelim (piazza return 0;)
+
+
+		//LET PLAYER 2 THE CHANCE TO PRINT BEFORE I GO		
+		int j;
+		for (j = 0; j < 6; j++){
+			doMediumTask();
+		}
+
+		close(a);
+		_exit(0);
+	} else {
+		int pid2 = fork();
+		if(pid2 == 0) {
+			doLongTask();
+			//player 2 (black)
+			b=open(moduleName, O_RDWR); 
+			ASSERT(b>=0);
+			int readRes = read(b, board, BUFFER_SIZE);
+			printBoard(board);
+			ASSERT(readRes == BUFFER_SIZE);
+			close(b);
+			_exit(0);
+		} else {
+			wait(&status);
+		}
+		wait(&status);
+	}	
+    return true;
+}
+
+bool PrintBoardSmallCountTest()
+{
+	char* moduleName = getModule();
+	char board[BUFFER_SIZE+1];
+	board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
 	int a;
 	int b;
 	int status;
@@ -562,9 +611,11 @@ bool PrintBoardTest()
 			//player 2 (black)
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
-			int readRes = read(b, board, 1024);
+
+
+			int readRes = read(b, board, 40);
 			printBoard(board);
-			ASSERT(readRes == 0);
+			ASSERT(readRes == 40);
 			close(b);
 			_exit(0);
 		} else {
@@ -575,13 +626,12 @@ bool PrintBoardTest()
     return true;
 }
 
-bool MakeMoveTest()
+bool MyFirstMoveTest()
 {
 	char* moduleName = getModule();
-	char board[1024];
-	char nextMove[2];
-	nextMove[0] = DOWN; 
-	nextMove[1] = '\0'; 
+	char board[BUFFER_SIZE+1];
+	board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
+	char nextMove = DOWN;
 	int a;
 	int b;
 	int status;
@@ -592,17 +642,17 @@ bool MakeMoveTest()
 		ASSERT(a>=0);
 
 		//board before
-		int readRes = read(a, board, 1024);	
-		ASSERT(readRes == 0);
+		int readRes = read(a, board, BUFFER_SIZE);	
+		ASSERT(readRes == BUFFER_SIZE);
 		printf("board before move is:\n");
 		printBoard(board);
 
-		int writeval = write(a, nextMove, 2);	
-		ASSERT(writeval == 0);
+		int writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
 
 		//board after move
-		readRes = read(a, board, 1024);	
-		ASSERT(readRes == 0);
+		readRes = read(a, board, BUFFER_SIZE);	
+		ASSERT(readRes == BUFFER_SIZE);
 		printf("board after move is:\n");
 		printBoard(board);
 
@@ -631,11 +681,9 @@ bool MakeMoveTest()
 bool MakeMoveCrashWallTest()
 {
 	char* moduleName = getModule();
-	char board[1024];
-	char nextMove[2];
-	nextMove[0] = UP; 
-	nextMove[1] = '\0'; 
-	int size = 2;
+	char board[BUFFER_SIZE+1];
+	board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
+	char nextMove = UP;
 	int a;
 	int b;
 	int status;
@@ -646,15 +694,15 @@ bool MakeMoveCrashWallTest()
 		ASSERT(a>=0);
 
 		//board before
-		int readRes = read(a, board, 1024);	
-		ASSERT(readRes == 0);
+		int readRes = read(a, board, BUFFER_SIZE);	
+		ASSERT(readRes == BUFFER_SIZE);
 
-		int writeval = write(a, nextMove, size);
-		ASSERT(writeval == -1);
+		int writeval = write(a, &nextMove, 1);
+		ASSERT(writeval == 1); // <---- should be 1 according to the metargelim
 
 		//board after illigal move
-		readRes = read(a, board, 1024);	
-		ASSERT(readRes < 0);
+		readRes = read(a, board, BUFFER_SIZE);	
+		ASSERT(readRes == BUFFER_SIZE); // <---- should success according to the metargelim even if the game over
 
 		doLongTask();
 		close(a);
@@ -683,24 +731,25 @@ bool MakeMoveCrashWallTest()
 bool MakeMoveIlligalCharacterTest()
 {
 	char* moduleName = getModule();
-	int size = 2;
+	char board[BUFFER_SIZE+1];
+	board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
 	int a;
 	int b;
 	int status;
 	int pid1 = fork();
 	if(pid1 == 0) {
 		//player 1 (white)
-		char nextMove[2];
-		nextMove[0] = DOWN; 
-		nextMove[1] = '\0'; 
+		char nextMove = DOWN;
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, size);	
-		ASSERT(writeval == 0);
+		int writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
 
-		doLongTask();
-		doLongTask();
+		//board after illigal move
+		int readRes = read(a, board, BUFFER_SIZE);	
+		ASSERT(readRes == BUFFER_SIZE); // <---- should success according to the metargelim even if the game over by the illigal char of black
+
 		doLongTask();
 		doLongTask();
 		close(a);
@@ -709,15 +758,18 @@ bool MakeMoveIlligalCharacterTest()
 		int pid2 = fork();
 		if(pid2 == 0) {
 			doLongTask();
-			char nextMove[2];
-			nextMove[0] = '9';  //  <---- illigal move
-			nextMove[1] = '\0'; 
+			char nextMove = '9';
 			//player 2 (black)
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, size);
-			ASSERT(writeval == -1);
+			int writeval = write(b, &nextMove, 1);
+			ASSERT(writeval == -1); //<---- writing illigal char should return -1 according to the metargelim
+
+			//board after illigal move
+			int readRes = read(b, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE); // <---- should success according to the metargelim even if the game over by the illigal char of black
+
 
 			doLongTask();
 			close(b);
@@ -736,7 +788,8 @@ bool MakeMultipleMovesTest()
 	// 3  2  1   (might also be with 4)
 	//-3 -2 -1   (might also be with -4)
 	char* moduleName = getModule();
-	char board[1024];
+	char board[BUFFER_SIZE+1];
+	board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
 	int a;
 	int b;
 	int status;
@@ -752,8 +805,8 @@ bool MakeMultipleMovesTest()
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 5);	
-		ASSERT(writeval == 0);
+		int writeval = write(a, nextMove, 4);	
+		ASSERT(writeval == 4);
 
 		doLongTask();
 		close(a);
@@ -773,13 +826,13 @@ bool MakeMultipleMovesTest()
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, 5);	
-			ASSERT(writeval == 0);
+			int writeval = write(b, nextMove, 4);	
+			ASSERT(writeval == 4);
 
 
 			//board after move
-			int readRes = read(b, board, 1024);	
-			ASSERT(readRes == 0);
+			int readRes = read(b, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE);
 			printBoard(board);
 
 			doLongTask();
@@ -810,8 +863,8 @@ bool MakeMoveCrashSnakeTest()
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 4);
-		ASSERT(writeval == -1);
+		int writeval = write(a, nextMove, 3);
+		ASSERT(writeval == 2); // <---- im the one who crashes so i did 2 step successfully
 
 		doLongTask();
 		doLongTask();
@@ -824,7 +877,7 @@ bool MakeMoveCrashSnakeTest()
 		if(pid2 == 0) {
 			char nextMove[4];
 			nextMove[0] = UP; 
-			nextMove[1] = UP; 
+			nextMove[1] = UP;   // <---- here game does already OVER
 			nextMove[2] = UP; 
 			nextMove[3] = '\0'; 
 			doLongTask();
@@ -832,8 +885,8 @@ bool MakeMoveCrashSnakeTest()
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, 4);
-			ASSERT(writeval == -1);
+			int writeval = write(b, nextMove, 3);
+			ASSERT(writeval == 1); // <---- we successfully made 1 move inside write, return 1 according to the metargelim
 
 			printDeadSnake();
 
@@ -869,8 +922,8 @@ bool MakeMultipleMovesWithIlligalMoveTest()
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 6);
-		ASSERT(writeval < 0);
+		int writeval = write(a, nextMove, 5);
+		ASSERT(writeval == -1); // <----- return -1 according to the metargelim for illigal move inside buffer
 
 		doLongTask();
 		close(a);
@@ -889,8 +942,8 @@ bool MakeMultipleMovesWithIlligalMoveTest()
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, 4);
-			ASSERT(writeval < 0);
+			int writeval = write(b, nextMove, 3);
+			ASSERT(writeval == 2); // <----- return 2 cause i did 2 moves succesfully, according to the metargelim
 
 			doLongTask();
 			close(b);
@@ -964,8 +1017,8 @@ bool GetWinnerWhiteWinTest()
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 5);	
-		ASSERT(writeval < 0);
+		int writeval = write(a, nextMove, 4);	
+		ASSERT(writeval == 2);  // <----- return 2 cause i did 2 moves succesfully, according to the metargelim
 
 		int ioctl_retval = ioctl(a, SNAKE_GET_WINNER);
         ASSERT(ioctl_retval == 4);
@@ -978,7 +1031,7 @@ bool GetWinnerWhiteWinTest()
 		if(pid2 == 0) {
 			char nextMove[5];
 			nextMove[0] = UP;
-			nextMove[1] = UP; 
+			nextMove[1] = UP; // <----- will crash white
 			nextMove[2] = UP; 
 			nextMove[3] = UP; 
 			nextMove[4] = '\0'; 
@@ -988,8 +1041,8 @@ bool GetWinnerWhiteWinTest()
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, 5);	
-			ASSERT(writeval < 0);
+			int writeval = write(b, nextMove, 4);	
+			ASSERT(writeval == 2); // <----- return 2 cause i did 2 moves succesfully, according to the metargelim
 
 			int ioctl_retval = ioctl(b, SNAKE_GET_WINNER);
 	        ASSERT(ioctl_retval == 4); //even if im black i should know that the white won!
@@ -1023,11 +1076,11 @@ bool GetWinnerBlackWinTest()
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 5);	
-		ASSERT(writeval < 0);
+		int writeval = write(a, nextMove, 4);	
+		ASSERT(writeval == 2); // <----- return 2 cause i did 2 moves succesfully, according to the metargelim
 
 		int ioctl_retval = ioctl(a, SNAKE_GET_WINNER);
-        ASSERT(ioctl_retval == 2); //even if im white i should know that the black won!
+        ASSERT(ioctl_retval == 2); // <------- even if im white i should know that the black won!
 
 		doLongTask();
 		close(a);
@@ -1047,11 +1100,11 @@ bool GetWinnerBlackWinTest()
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, 5);	
-			ASSERT(writeval < 0);
+			int writeval = write(b, nextMove, 4);	
+			ASSERT(writeval == 1);  // <----- return 1 cause i did 1 moves succesfully, according to the metargelim
 
 			int ioctl_retval = ioctl(b, SNAKE_GET_WINNER);
-	        ASSERT(ioctl_retval == 2); 
+	        ASSERT(ioctl_retval == 2); // <----- i won!!!
 
 			doLongTask();
 			close(b);
@@ -1072,23 +1125,21 @@ bool GetWinnerGameInProgressTest()
 	int status;
 	int pid1 = fork();
 	if(pid1 == 0) {
-		char nextMove[2];
-		nextMove[0] = DOWN; 
-		nextMove[1] = '\0'; 
+		char nextMove = DOWN;
 		//player 1 (white)
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 2);	
-		ASSERT(writeval == 0);
+		int writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
 
 		int ioctl_retval = ioctl(a, SNAKE_GET_WINNER);
-        ASSERT(ioctl_retval == -1); //even if im white i should know that the black won!
+        ASSERT(ioctl_retval == -1); // <----- game is not finished
 
-		nextMove[0] = RIGHT; 
+		nextMove = RIGHT; 
 
-		writeval = write(a, nextMove, 2);	
-		ASSERT(writeval == 0);
+		writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
 
 
 		doLongTask();
@@ -1097,25 +1148,23 @@ bool GetWinnerGameInProgressTest()
 	} else {
 		int pid2 = fork();
 		if(pid2 == 0) {
-			char nextMove[2];
-			nextMove[0] = UP;
-			nextMove[1] = '\0'; 
+			char nextMove = UP;
 
 			doLongTask();
 			//player 2 (black)
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
 
-			int writeval = write(b, nextMove, 2);	
-			ASSERT(writeval == 0);
+			int writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
 
 			int ioctl_retval = ioctl(b, SNAKE_GET_WINNER);
-	        ASSERT(ioctl_retval == -1); 
+	        ASSERT(ioctl_retval == -1); // <----- game is not finished
 
-			nextMove[0] = RIGHT;
+			nextMove = RIGHT;
 
-	        writeval = write(b, nextMove, 2);	
-			ASSERT(writeval == 0);
+	        writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
 
 			doLongTask();
 			close(b);
@@ -1131,20 +1180,18 @@ bool GetWinnerGameInProgressTest()
 bool MakeSimpleGameGameAux(char* myModuleName)
 {
 	char* moduleName = myModuleName;
-	char nextMove[2];
-	nextMove[0] = DOWN; 
-	nextMove[1] = '\0'; 
 	int a;
 	int b;
 	int status;
 	int pid1 = fork();
 	if(pid1 == 0) {
+		char nextMove = DOWN;
 		//player 1 (white)
 		a=open(moduleName, O_RDWR);
 		ASSERT(a>=0);
 
-		int writeval = write(a, nextMove, 2);	
-		ASSERT(writeval == 0);
+		int writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
 
 		doLongTask();
 		close(a);
@@ -1152,10 +1199,14 @@ bool MakeSimpleGameGameAux(char* myModuleName)
 	} else {
 		int pid2 = fork();
 		if(pid2 == 0) {
+			char nextMove = UP;
 			doLongTask();
 			//player 2 (black)
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
+
+			int writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
 
 			doLongTask();
 			close(b);
@@ -1272,22 +1323,22 @@ bool TwoWhitesAgainstOneBlackTest()
 			nextMove[3] = RIGHT; 
 			nextMove[4] = '\0'; 
 
-			int writeval = write(a, nextMove, 5);	
-			ASSERT(writeval < 0);
+			int writeval = write(a, nextMove, 4);	
+			ASSERT(writeval == 2); // <------ i did 2 good moves, give me a break
 			_exit(0);
 		}
 		else
 		{
 			doLongTask();
 			char nextMove[5];
-			nextMove[0] = DOWN; 
-			nextMove[1] = RIGHT; 
-			nextMove[2] = RIGHT; 
-			nextMove[3] = RIGHT; 
+			nextMove[0] = LEFT; 
+			nextMove[1] = LEFT; 
+			nextMove[2] = LEFT; 
+			nextMove[3] = LEFT; 
 			nextMove[4] = '\0'; 
-			int writeval = write(a, nextMove, 5);
-				
-			ASSERT(writeval < 0);
+			int writeval = write(a, nextMove, 4);			
+			ASSERT(writeval == -1); // <------ should be in the game after its already finished
+
 			doLongTask();
 			close(a);
 			wait(&status);
@@ -1296,17 +1347,16 @@ bool TwoWhitesAgainstOneBlackTest()
 	} else {
 		int pid2 = fork();
 		if(pid2 == 0) {
-			char nextMove[2];
-			nextMove[0] = UP;
-			nextMove[1] = '\0'; 
+			char nextMove = UP;
 
 			doLongTask();
 			doLongTask();
 			//player 2 (black)
 			b=open(moduleName, O_RDWR); 
 			ASSERT(b>=0);
-			int writeval = write(b, nextMove, 2);	
-			ASSERT(writeval == 0);
+
+			int writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
 
 			doLongTask();
 			close(b);
@@ -1341,8 +1391,8 @@ bool ThreeAgainstThreeTest()
 			nextMove[3] = RIGHT; 
 			nextMove[4] = '\0'; 
 
-			int writeval = write(a, nextMove, 5);	
-			ASSERT(writeval == 0);
+			int writeval = write(a, nextMove, 4);	
+			ASSERT(writeval == 4);
 			_exit(0);
 		}
 		else
@@ -1358,8 +1408,8 @@ bool ThreeAgainstThreeTest()
 				nextMove[3] = RIGHT; 
 				nextMove[4] = '\0'; 
 
-				int writeval = write(a, nextMove, 5);	
-				ASSERT(writeval < 0);
+				int writeval = write(a, nextMove, 4);	
+				ASSERT(writeval == -1);
 				_exit(0);
 			}
 			else
@@ -1372,9 +1422,9 @@ bool ThreeAgainstThreeTest()
 				nextMove[2] = RIGHT; 
 				nextMove[3] = RIGHT; 
 				nextMove[4] = '\0'; 
-				int writeval = write(a, nextMove, 5);
+				int writeval = write(a, nextMove, 4);
 					
-				ASSERT(writeval < 0);
+				ASSERT(writeval == -1);
 				doLongTask();
 				close(a);
 				wait(&status);
@@ -1392,12 +1442,10 @@ bool ThreeAgainstThreeTest()
 			int myFirstSon = fork();
 			if(myFirstSon == 0)
 			{
-				char nextMove[2];
-				nextMove[0] = UP; 
-				nextMove[1] = '\0'; 
+				char nextMove = UP;
 
-				int writeval = write(b, nextMove, 2);	
-				ASSERT(writeval == 0);
+				int writeval = write(b, &nextMove, 1);	
+				ASSERT(writeval == 1);
 				_exit(0);
 			}
 			else
@@ -1406,24 +1454,20 @@ bool ThreeAgainstThreeTest()
 				if(mySecondSon == 0)
 				{
 					doLongTask();
-					char nextMove[2];
-					nextMove[0] = RIGHT; 
-					nextMove[1] = '\0'; 
+					char nextMove = RIGHT;
 
-					int writeval = write(b, nextMove, 2);	
-					ASSERT(writeval == 0);
+					int writeval = write(b, &nextMove, 1);	
+					ASSERT(writeval == 1);
 					_exit(0);
 				}
 				else
 				{
 					//father code
 					doLongTask();
-					char nextMove[2];
-					nextMove[0] = RIGHT; 
-					nextMove[1] = '\0'; 
-					int writeval = write(b, nextMove, 2);
+					char nextMove = RIGHT;
+					int writeval = write(b, &nextMove, 1);
 						
-					ASSERT(writeval == 0);
+					ASSERT(writeval == 1);
 					doLongTask();
 					close(b);
 					wait(&status);
@@ -1439,6 +1483,137 @@ bool ThreeAgainstThreeTest()
     return true;
 }
 
+bool AgressiveReadWriteTest()
+{
+	char* moduleName = getModule();
+	int a;
+	int b;
+	int status;
+	int pid1 = fork();
+	if(pid1 == 0) {
+		char nextMove = DOWN;
+		char board[BUFFER_SIZE+1];
+		board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
+		//player 1 (white)
+		a=open(moduleName, O_RDWR);
+		ASSERT(a>=0);
+		int i;
+		for (i = 0; i < 500; ++i)
+		{
+			int readRes = read(a, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE);
+		}
+
+		int writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
+
+		for (i = 0; i < 500; ++i)
+		{
+			int readRes = read(a, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE);
+		}		
+
+		nextMove = RIGHT;
+		writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
+
+		for (i = 0; i < 500; ++i)
+		{
+			int readRes = read(a, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE);
+		}	
+
+		nextMove = RIGHT;
+		writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
+
+		for (i = 0; i < 500; ++i)
+		{
+			int readRes = read(a, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE);
+		}	
+
+		nextMove = RIGHT;
+		writeval = write(a, &nextMove, 1);	
+		ASSERT(writeval == 1);
+
+		for (i = 0; i < 500; ++i)
+		{
+			int readRes = read(a, board, BUFFER_SIZE);	
+			ASSERT(readRes == BUFFER_SIZE);
+		}	
+
+		doLongTask();
+		close(a);
+		_exit(0);
+	} else {
+		int pid2 = fork();
+		if(pid2 == 0) {
+			char nextMove = UP;
+			char board[BUFFER_SIZE+1];
+			board[BUFFER_SIZE]='\0'; // <---- might be redundant but i cant leave it like that! it's a disturbia
+
+			doLongTask();
+			//player 2 (black)
+			b=open(moduleName, O_RDWR); 
+			ASSERT(b>=0);
+
+			int i;
+			for (i = 0; i < 500; ++i)
+			{
+				int readRes = read(b, board, BUFFER_SIZE);	
+				ASSERT(readRes == BUFFER_SIZE);
+			}
+
+			int writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
+
+			for (i = 0; i < 500; ++i)
+			{
+				int readRes = read(b, board, BUFFER_SIZE);	
+				ASSERT(readRes == BUFFER_SIZE);
+			}		
+
+			nextMove = RIGHT;
+			writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
+
+			for (i = 0; i < 500; ++i)
+			{
+				int readRes = read(b, board, BUFFER_SIZE);	
+				ASSERT(readRes == BUFFER_SIZE);
+			}	
+
+			nextMove = RIGHT;
+			writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
+
+			for (i = 0; i < 500; ++i)
+			{
+				int readRes = read(b, board, BUFFER_SIZE);	
+				ASSERT(readRes == BUFFER_SIZE);
+			}	
+
+			nextMove = RIGHT;
+			writeval = write(b, &nextMove, 1);	
+			ASSERT(writeval == 1);
+
+			for (i = 0; i < 500; ++i)
+			{
+				int readRes = read(b, board, BUFFER_SIZE);	
+				ASSERT(readRes == BUFFER_SIZE);
+			}	
+
+			doLongTask();
+			close(b);
+			_exit(0);
+		} else {
+			wait(&status);
+		}
+		wait(&status);
+	}	
+    return true;	
+}
 
 
 //todo - get string instead of char!
@@ -1454,8 +1629,7 @@ void PlayFullGame()
 	gameHasEnded = mmap(NULL, sizeof (*gameHasEnded), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*gameHasEnded = -1; // game will be over if gameHasEnded is != -1
 	
-	nextMove = mmap(NULL, sizeof(*nextMove) * 2, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	nextMove[1] = '\0';
+	nextMove = mmap(NULL, sizeof(*nextMove), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	player = mmap(NULL, sizeof (*player), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*player = 100;
@@ -1470,7 +1644,8 @@ void PlayFullGame()
 	int status;
 	int pid1 = fork();
 	if(pid1 == 0) {
-		char board[1024];
+		char board[BUFFER_SIZE+1];
+		board[BUFFER_SIZE] = '\0';
 		//player 1 (white)
 		*a=open(moduleName, O_RDWR);
 		*numOfPlayers = *numOfPlayers +1;
@@ -1480,13 +1655,13 @@ void PlayFullGame()
 			{
 				*player = 0;
 				*Currentplayer = 1;
-				read(*a, board, 1024); //board before
+				read(*a, board, BUFFER_SIZE); //board before
 				printButtonPress(board,nextMove);
 
-				int res = write(*a,nextMove, 2);
+				int res = write(*a,nextMove, 1);
 				if(res < 0 ) {*gameHasEnded =1;}
 
-				read(*a, board, 1024);
+				read(*a, board, BUFFER_SIZE);
 				printBoard(board);
 				*player = 100;
 			}
@@ -1495,12 +1670,12 @@ void PlayFullGame()
 	} else {
 		int pid2 = fork();
 		if(pid2 == 0) {
-			char board[1024];
+			char board[BUFFER_SIZE];
 			doLongTask();
 			//player 2 (black)
 			*b=open(moduleName, O_RDWR);
 			*Currentplayer = -1;
-			read(*b, board, 1024);
+			read(*b, board, BUFFER_SIZE);
 			printBoard(board);
 			*numOfPlayers = *numOfPlayers +1;
 			while(*gameHasEnded == -1)
@@ -1509,12 +1684,12 @@ void PlayFullGame()
 				{
 					*player = 0;
 					*Currentplayer = -1;
-					read(*b, board, 1024);
+					read(*b, board, BUFFER_SIZE);
 					printButtonPress(board,nextMove);
-					int res = write(*b,nextMove, 2);
+					int res = write(*b,nextMove, 1);
 					if(res < 0 ) {*gameHasEnded =1;}
 
-					read(*b, board, 1024);
+					read(*b, board, BUFFER_SIZE);
 					printBoard(board);
 					*player = 100;
 					*gameHasEnded = ioctl(*b, SNAKE_GET_WINNER);
@@ -1560,8 +1735,7 @@ void PlayFullGame()
 				    	nextMoveAux = RIGHT;
 					}
 
-					nextMove[0] = nextMoveAux; 
-					nextMove[1] = '\0';
+					*nextMove = nextMoveAux; 
 					*player = lastPlayer * (-1);
 					lastPlayer = *player;
 				}
@@ -1575,7 +1749,7 @@ void PlayFullGame()
 	}
 	munmap(numOfPlayers, sizeof (*numOfPlayers));
 	munmap(gameHasEnded, sizeof (*gameHasEnded));
-	munmap(nextMove, sizeof (*nextMove) * 2);
+	munmap(nextMove, sizeof (*nextMove));
 	munmap(player, sizeof (*player));
 	munmap(Currentplayer, sizeof (*Currentplayer));
 	munmap(a, sizeof (*a));
@@ -1583,8 +1757,6 @@ void PlayFullGame()
 }
 
 
-//bool multiple moves at once
-//bool try to open more drivers then possible ??!?!
 /*========================[TESTS]========================*/
 
 
@@ -1615,7 +1787,7 @@ int main(){
         RUN_TEST(CreateGameSameModuleAfterCancelTest);
         RUN_TEST(CreateGameWithThreePlayersTest);
         RUN_TEST(PrintBoardTest);
-        RUN_TEST(MakeMoveTest);
+        RUN_TEST(MyFirstMoveTest);
         RUN_TEST(MakeMoveCrashWallTest);
         RUN_TEST(MakeMoveIlligalCharacterTest);
         RUN_TEST(MakeMultipleMovesTest);
@@ -1628,7 +1800,7 @@ int main(){
         RUN_TEST(TreeGamesAtTheSameTime);
         RUN_TEST(TwoWhitesAgainstOneBlackTest);
         RUN_TEST(ThreeAgainstThreeTest);
-
+        RUN_TEST(AgressiveReadWriteTest);
         
 	}
 	else if (answer == 'a' || answer == 'A')

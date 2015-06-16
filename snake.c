@@ -97,7 +97,7 @@ int my_open( struct inode *inode, struct file *filep ) {
 		else if (games_array[myMinor].num_of_players >= TWO) {
 			printk("[HW4 OPEN] - THERE ARE ALREADY 2 PLAYERS, PREMITION DENIED MINOR%d\n",myMinor);
 			spin_unlock(spinlocks_array[myMinor]);
-			return -EPERM;
+			return -ERROR_SNAKE;
 		}
 	spin_unlock(spinlocks_array[myMinor]);
 
@@ -168,27 +168,40 @@ int my_release( struct inode *inode, struct file *filep ) {
 ssize_t my_read( struct file *filep, char *buf, size_t count, loff_t *f_pos ) {
 	printk("[HW4 MY_READ] - STARTED\n");
 	Data* m_data = ((Data*)filep->private_data);
-	if ((m_data->my_game)->is_game_cancled != 0 || (m_data->my_game)->is_game_finished != 0)
+	if ((m_data->my_game)->is_game_cancled != 0)
 	{
 		printk("[HW4 MY_READ] - THIS GAME IS LONG GONE\n");
 		return -ERROR_SNAKE;
+	}	
+	if (!count)
+	{
+		return 0;
 	}
-	
+	if (!buf)
+	{
+		return -EFAULT;
+	}
+
 	int myMinor = (m_data->my_game)->game_number;
-	char* board_buffer = (char*)kmalloc(sizeof(char)*count,GFP_KERNEL);
+	char* my_board_buffer = (char*)kmalloc(sizeof(char)*(count+1),GFP_KERNEL);
 	struct semaphore *sem = &semaphore_array[myMinor];
 	
 	down_interruptible(sem);
-		Print(&(m_data->my_game)->board, board_buffer, count);
-		printk("%s\n",board_buffer);
+		Print(&(m_data->my_game)->board, my_board_buffer, count+1);
+		printk("%s\n",my_board_buffer);
 	up(sem);
 	
-	int newCount = strlen(board_buffer);
-	int result = copy_to_user(buf, board_buffer, newCount);
 
-	kfree(board_buffer);
+
+	int result_copy_to_user = copy_to_user(buf, my_board_buffer, count);
+
+	kfree(my_board_buffer);
 	printk("[HW4 MY_READ] - ENDED\n");
-	return result;
+	if(result_copy_to_user == count)
+	{
+		return -EFAULT;
+	}
+	return count-result_copy_to_user;
 }
 
 /*========================[Write]========================*/
@@ -203,15 +216,20 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 
 	int myMinor = (m_data->my_game)->game_number;
 	char* buffer = (char*)kmalloc(sizeof(char)*count, GFP_KERNEL);
-	int result = copy_from_user(buffer, buf, count);
+	int res_copy_from_user = copy_from_user(buffer, buf, count);
+	if(res_copy_from_user==count)
+	{
+		return -EFAULT;
+	}
+	int result_counter = 0;
 
 	struct semaphore *sem = &semaphore_array[myMinor];
 	struct semaphore *sem_cond_white = &semaphore_cond_white[myMinor];
 	struct semaphore *sem_cond_black = &semaphore_cond_black[myMinor];
 
 	Game* current_game = m_data->my_game;
-	int i = 0;
-	while(buffer[i] != '\0') {
+	int i;
+	for(i = 0; i<count ; ++i) {
 		if(m_data->my_color == WHITE)
 		{
 			printk("[HW4 WRITE] IM WHITE - NEW ITERATION pid %d\n",current->pid );
@@ -241,6 +259,10 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 			}else{
 				printk("[HW4 WRITE] IM BLACK - I WANTED TO MAKE A MOVE BUT GAME OVER pid %d\n",current->pid );
 				printk("[HW4 WRITE] IM BLACK - RETURN pid %d\n",current->pid );
+			}
+			if(result_counter > 0)
+			{
+				return result_counter;
 			}
 			return -ERROR_SNAKE;
 		}
@@ -317,20 +339,36 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 					printk("[HW4 WRITE] IM BLACK - RETURN pid %d\n",current->pid );
 				}
 				up(sem);
+				if(result_counter>0)
+				{
+					return result_counter;
+				}
 				return -ERROR_SNAKE;
 			}
 
 			if(m_data->my_color == WHITE)
 			{
-				printk("[HW4 WRITE] IM WHITE - CALLING TO UPDATE pid %d\n",current->pid );
+				printk("[HW4 WRITE] IM WHITE - CALLING TO UPDATE pid %d with char %c\n",current->pid , buffer[i]);
 			}else{
-				printk("[HW4 WRITE] IM BLACK - CALLING TO UPDATE pid %d\n",current->pid );	
+				printk("[HW4 WRITE] IM BLACK - CALLING TO UPDATE pid %d with char %c\n",current->pid , buffer[i]);	
 			}	
 			//make move
+			result_counter++;
 			Update(&(current_game->board), m_data->my_color , buffer[i], &update_error , &(current_game->white_hunger), &(current_game->black_hunger));
 			current_game->last_color = m_data->my_color;
 
-			if(update_error == ERR_INVALID_TARGET || update_error == ERR_SNAKE_IS_TOO_HUNGRY) {
+			//came back from Update, checking the result
+			if(update_error == ERR_INVALID_INPUT)
+			{
+				if(m_data->my_color == WHITE)
+				{
+					printk("[HW4 WRITE] IM WHITE - LOSER - result_counter IS :%d , SETTING is_game_finished to 1 pid %d\n",result_counter,current->pid );	
+				}else{
+					printk("[HW4 WRITE] IM BLACK - LOSER - result_counter IS :%d , SETTING is_game_finished to 1 pid %d\n",result_counter,current->pid );	
+				}
+				up(sem);
+				return -ERROR_SNAKE;
+			} else if(update_error == ERR_INVALID_TARGET || update_error == ERR_SNAKE_IS_TOO_HUNGRY) {
 				
 				if(m_data->my_color == WHITE)
 				{
@@ -338,7 +376,7 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 				}else{
 					printk("[HW4 WRITE] IM BLACK - LOSER - SETTING is_game_finished to 1 pid %d\n",current->pid );	
 				}
-				result = -ERROR_SNAKE;
+				//result_counter = -ERROR_SNAKE;
 				current_game->is_game_finished = 1;
 				current_game->winner = -(m_data->my_color);
 			} else if (update_error == ERR_BOARD_FULL) {
@@ -364,12 +402,11 @@ ssize_t my_write(struct file *filep, const char *buf, size_t count, loff_t *f_po
 				up(sem_cond_white);
 			}
 		up(sem);
-		i++;
 	}
 	
 	kfree(buffer);
-	printk("[HW4 WRITE] - ENDED result = %d\n",result);
-	return result;
+	printk("[HW4 WRITE] - ENDED result = %d\n",result_counter);
+	return result_counter;
 }
 
 /*========================[Llseek]========================*/
@@ -379,25 +416,31 @@ loff_t my_llseek(struct file *filep, loff_t a, int num) {
 
 /*========================[Ioctl]========================*/
 int my_ioctl(struct inode *inode, struct file *filep, unsigned int cmd, unsigned long arg) {
+    int tie = 5;
+    int white_winner = 4;
+    int black_winner = 2;
     printk("[HW4 IOCTL] - CALLED\n");
     Data* m_data = ((Data*)filep->private_data);
- //    if ((m_data->my_game)->is_game_cancled != 0 || (m_data->my_game)->is_game_finished != 0)
-	// {
-	// 	return -ERROR_SNAKE;
-	// }
+    if ((m_data->my_game)->is_game_cancled != 0) // <----- game was canceled!!
+	{
+		return -ERROR_SNAKE;
+	}
 
 	switch( cmd ) {
 		case SNAKE_GET_WINNER:
             //handle SNAKE_GET_WINNER;
-			if(m_data->my_game->winner > 0) {
+			if(m_data->my_game->winner > 0 && m_data->my_game->is_game_finished != 0) {
 				printk("[HW4 IOCTL] - SNAKE_GET_WINNER - WHITE IS WINNER\n");
-				return 4;
-			} else if(m_data->my_game->winner < 0) {
+				return white_winner;
+			} else if(m_data->my_game->winner < 0 && m_data->my_game->is_game_finished != 0) {
 				printk("[HW4 IOCTL] - SNAKE_GET_WINNER - BLACK IS WINNER\n");
-				return 2;
+				return black_winner;
+			} else if(m_data->my_game->winner == 0 && m_data->my_game->is_game_finished != 0) {
+				printk("[HW4 IOCTL] - SNAKE_GET_WINNER - BLACK IS WINNER\n");
+				return tie;
 			} else if(m_data->my_game->is_game_finished == 0) {
 				printk("[HW4 IOCTL] - SNAKE_GET_WINNER - GAME IS NOT FINISHED\n");
-				return -1;
+				return -ERROR_SNAKE;
 			}
 			return -ENOTTY;
 			break;

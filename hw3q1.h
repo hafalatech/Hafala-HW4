@@ -28,6 +28,16 @@ typedef int Direction;
 #define RIGHT (6)
 #define UP    (8)
 
+
+#define STRCAT(buffer, strToAdd, size, counter) do { \
+    if ( (!(counter) || (((counter)-(size))<(0))) ) { \
+            return; \
+    } \
+    counter-=size; \
+    strcat((buffer),(strToAdd)); \
+} while (0)
+
+
 /* a point in 2d space */
 typedef struct
 {
@@ -44,7 +54,7 @@ typedef struct game_t {
 	Player last_color; //0- initialize, 1- white, -1- black
 	int winner; // (0) tie, (1) white, (-1) black
 	int white_hunger;
-	int black_hunger; // (0) tie, (1) white, (-1) black
+	int black_hunger;
 	Matrix board;
 } Game;
 
@@ -56,6 +66,7 @@ typedef int ErrorCode;
 #define ERR_BOARD_FULL			((ErrorCode)-1)
 #define ERR_SNAKE_IS_TOO_HUNGRY ((ErrorCode)-2)
 #define ERR_INVALID_TARGET 		((ErrorCode)-3)
+#define ERR_INVALID_INPUT 		((ErrorCode)-4)
 
 int Init(Matrix *matrix); /* initialize the board. return false if the board is illegal (should not occur, affected by N, M parameters) */
 int Update(Matrix *matrix, Player player, char next_move, ErrorCode* e, int *white_hunger, int *black_hunger );/* handle all updating to this player. returns whether to continue or not. */
@@ -104,8 +115,15 @@ int Init(Matrix *matrix)
 
 int Update(Matrix *matrix, Player player, char next_move, ErrorCode* e, int *white_hunger, int *black_hunger )
 {
+	//first check the input!!!
+	Direction dir = next_move - '0';
+	if (dir != UP && dir != DOWN && dir != LEFT && dir != RIGHT)
+	{
+		*e = ERR_INVALID_INPUT;
+		return FALSE;
+	}
+
 	printk("[HW4 UPDATE] - STARTED - char is %c\n",next_move);
-	//lock until write frees it LOCK_Update
 	Point p = GetInputLoc(matrix, player, next_move);
 
 	if (!CheckTarget(matrix, player, p))
@@ -221,7 +239,7 @@ int IsAvailable(Matrix *matrix, Point p)
 ErrorCode CheckFoodAndMove(Matrix *matrix, Player player, Point p, int *white_hunger, int *black_hunger)
 {
 	if (player == BLACK)
-			printk("[HW4 CheckFoodAndMove] BLACK - ITS HUNGER IS %d\n",*black_hunger); 
+		printk("[HW4 CheckFoodAndMove] BLACK - ITS HUNGER IS %d\n",*black_hunger); 
 	if (player == WHITE)
 		printk("[HW4 CheckFoodAndMove] WHITE - ITS HUNGER IS %d\n",*white_hunger); 
 
@@ -317,6 +335,7 @@ int IsMatrixFull(Matrix *matrix)
 
 void Print(Matrix *matrix, char* buffer, int lenght)
 {
+	int counter = lenght;
 	printk("[HW1 Print] - PRINTING BOARD");
 	//ripud
 	int i;
@@ -328,48 +347,47 @@ void Print(Matrix *matrix, char* buffer, int lenght)
 	Point p;
 	for (i = 0; i < N + 1; ++i)
 	{
-		strcat(buffer, "---");
+		STRCAT(buffer, "---", 3, counter);
 	}
-	strcat(buffer,"\n");
+	STRCAT(buffer,"\n",1,counter);
 	for (p.y = 0; p.y < N; ++p.y)
 	{
-		strcat(buffer,"|");
+		STRCAT(buffer,"|",1,counter);
 		for (p.x = 0; p.x < N; ++p.x)
 		{
 			int currentVal = (int)((*matrix)[p.y][p.x]);
 			if(currentVal == FOOD)
 			{
-				strcat(buffer,"  *");
+				STRCAT(buffer,"  *",3 , counter);
 			} 
 			else if (currentVal == EMPTY)
 			{
-				strcat(buffer,"  .");
+				STRCAT(buffer,"  .", 3, counter);
 			}
 			else if (currentVal > 0)
 			{
-				strcat(buffer,"  ");
+				STRCAT(buffer,"  ", 2, counter);
 				char valToChar[2];
 				valToChar[0] = currentVal + '0';
 				valToChar[1] = '\0';
-				strcat(buffer,valToChar);
+				STRCAT(buffer,valToChar, 1, counter);
 			}
 			else if (currentVal < 0)
 			{
-				strcat(buffer," -");
+				STRCAT(buffer," -", 2, counter);
 				char valToChar[2];
 				valToChar[0] = (-currentVal) + '0';
 				valToChar[1] = '\0';
-				strcat(buffer,valToChar);	
+				STRCAT(buffer,valToChar, 1, counter);	
 			}
 		}
-		strcat(buffer," |\n");
+		STRCAT(buffer," |\n", 3, counter);
 	}
 	for (i = 0; i < N + 1; ++i)
 	{
-		strcat(buffer,"---");
+		STRCAT(buffer,"---", 3, counter);
 	}
-	strcat(buffer,"\n");
-	buffer[lenght-1] = '\0';
+	STRCAT(buffer,"\n", 1, counter);
 	printk("[HW1 Print] - PRINT FINISHED");
 }
 
